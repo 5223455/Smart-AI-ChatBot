@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Speech Recognition</title>
+    <style>
+        #cancelBtn, #restartBtn { display: none; } /* Hide buttons initially */
+    </style>
+</head>
+<body>
+    <h1>Speech Recognition App</h1>
+    <form id="recordForm">
+        <label for="mic_index">Select Microphone:</label>
+        <select name="mic_index" id="mic_index">
+            {% for mic in microphones %}
+                <option value="{{ mic.index }}">{{ mic.name }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" id="startBtn">Start Recording</button>
+        <button type="button" id="cancelBtn">Cancel</button>
+        <button type="button" id="restartBtn">Restart</button>
+    </form>
+    
+    <h2>Transcription:</h2>
+    <p id="result"></p>
+
+    <script>
+        let recording = false;
+        let controller = new AbortController();
+
+        document.getElementById("recordForm").onsubmit = async function(event) {
+            event.preventDefault();
+            if (recording) return; // Prevent duplicate submissions
+
+            recording = true;
+            controller = new AbortController(); // Reset controller
+            document.getElementById("startBtn").style.display = "none";
+            document.getElementById("cancelBtn").style.display = "inline";
+            document.getElementById("restartBtn").style.display = "none";
+
+            let formData = new FormData(event.target);
+            try {
+                let response = await fetch("/record", { 
+                    method: "POST", 
+                    body: formData,
+                    signal: controller.signal
+                });
+
+                let result = await response.json();
+                document.getElementById("result").innerText = result.text || result.error;
+            } catch (error) {
+                if (error.name === "AbortError") {
+                    document.getElementById("result").innerText = "Recording canceled.";
+                } else {
+                    document.getElementById("result").innerText = "Unexpected error occurred.";
+                }
+            } finally {
+                recording = false;
+                document.getElementById("startBtn").style.display = "inline";
+                document.getElementById("cancelBtn").style.display = "none";
+                document.getElementById("restartBtn").style.display = "inline";
+            }
+        };
+
+        document.getElementById("cancelBtn").onclick = function() {
+            if (recording) {
+                controller.abort(); // Cancel request
+                document.getElementById("result").innerText = "Recording canceled.";
+                recording = false;
+                document.getElementById("startBtn").style.display = "inline";
+                document.getElementById("cancelBtn").style.display = "none";
+                document.getElementById("restartBtn").style.display = "inline";
+            }
+        };
+
+        document.getElementById("restartBtn").onclick = function() {
+            document.getElementById("result").innerText = "";
+            document.getElementById("startBtn").style.display = "inline";
+            document.getElementById("cancelBtn").style.display = "none";
+            document.getElementById("restartBtn").style.display = "none";
+        };
+    </script>
+</body>
+</html>
